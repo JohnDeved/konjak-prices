@@ -1,30 +1,62 @@
-import { writeFile } from "bun";
-import cheerio from "cheerio";
+import * as cheerio from "npm:cheerio";
+import { $ } from "npm:zx";
+import { Offer, OfferData } from "./types.ts";
 
 const urls = [
   "https://www.bulk.com/at/products/diat-udon-nudeln/bpf-duno",
   "https://www.bulk.com/at/products/diatnudeln/bpf-dnoo",
 ];
 
-const results = [];
+const outputFile = "prices.jsonl";
+const newData: OfferData = {};
+
 for (const url of urls) {
-  const html = await fetch(url).then(r => r.text());
-  const $ = cheerio.load(html);
-  const ldjson = JSON.parse($('script[type="application/ld+json"]').first().html());
-  const offers = Object.fromEntries(ldjson.offers.map(x => [x.sku, x]));
-  const s = offers["BPF-DUNO-ORIG-200G"] || offers["BPF-DNOO-ORIG-200G"];
-  const b = offers["BPF-DUNO-ORIG-BX06"] || offers["BPF-DNOO-ORIG-BX06"];
-  if (!s || !b) continue;
-  const per = +(b.price / 6).toFixed(2);
-  const cheapest = Math.min(s.price, per);
-  results.push({
-    product: ldjson.name,
-    "200g_price_eur": s.price,
-    "6x200g_price_eur": b.price,
-    "per_200g_in_box_eur": per,
-    "cheapest_per_200g_eur": cheapest,
-    price_valid_until: s.priceValidUntil || b.priceValidUntil,
-  });
+  const html = await fetch(url).then((res) => res.text());
+  const $c = cheerio.load(html);
+  const data = JSON.parse($c('script[type="application/ld+json"]').text());
+  const offers = Object.fromEntries(
+    (data.offers as Offer[]).map((o) => [o.sku, o]),
+  );
+  const single = Object.values(offers).find((o: Offer) =>
+    o.sku.endsWith("-200G")
+  );
+  const box = Object.values(offers).find((o: Offer) => o.sku.endsWith("-BX06"));
+
+  if (!single || !box) continue;
+  const perBox = +(box.price / 6).toFixed(2);
+  newData[data.name] = {
+    price_200g: single.price,
+    price_6x200g: box.price,
+    price_per_200g_in_box: perBox,
+    cheapest_per_200g: Math.min(single.price, perBox),
+    price_valid_until: single.priceValidUntil || box.priceValidUntil,
+    fetched_at: new Date().toISOString().slice(0, 10),
+  };
 }
 
-await writeFile("bulk_prices.json", JSON.stringify(results, null, 2));
+async function getLastLine(file: string): Promise<string | null> {
+  const res = await $`tail -n 1 ${file}`.catch(() => null);
+  if (res === null) return null;
+  return res.stdout.trim();
+}
+
+const lastLine = await getLastLine(outputFile);
+const lastData: OfferData = lastLine ? JSON.parse(lastLine) : null;
+
+// check if any price has changed
+const hasChanged = Object.entries(newData).some(([key, newValue]) => {
+  const oldValue = lastData?.[key];
+  if (!oldValue) return true;
+  return (
+    newValue.price_200g !== oldValue.price_200g ||
+    newValue.price_6x200g !== oldValue.price_6x200g
+  );
+});
+
+if (!hasChanged) {
+  console.log("No changes detected, exiting.");
+  Deno.exit(0);
+}
+
+console.log("Changes detected, writing to file...");
+Deno.writeTextFileSync(outputFile, JSON.stringify(newData) + "\n", { append: true },);
