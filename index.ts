@@ -14,12 +14,8 @@ for (const url of urls) {
   const html = await fetch(url).then((res) => res.text());
   const $c = cheerio.load(html);
   const data = JSON.parse($c('script[type="application/ld+json"]').text());
-  const offers = Object.fromEntries(
-    (data.offers as Offer[]).map((o) => [o.sku, o]),
-  );
-  const single = Object.values(offers).find((o: Offer) =>
-    o.sku.endsWith("-200G")
-  );
+  const offers = Object.fromEntries((data.offers as Offer[]).map((o) => [o.sku, o]));
+  const single = Object.values(offers).find((o: Offer) => o.sku.endsWith("-200G"));
   const box = Object.values(offers).find((o: Offer) => o.sku.endsWith("-BX06"));
 
   if (!single || !box) continue;
@@ -41,7 +37,7 @@ async function getLastLine(file: string): Promise<string | null> {
 }
 
 const lastLine = await getLastLine(outputFile);
-const lastData: OfferData = lastLine ? JSON.parse(lastLine) : null;
+const lastData: OfferData | null = lastLine ? JSON.parse(lastLine) : null;
 
 // check if any price has changed
 const hasChanged = Object.entries(newData).some(([key, newValue]) => {
