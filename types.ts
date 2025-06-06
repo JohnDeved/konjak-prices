@@ -11,7 +11,7 @@ export interface Offer {
   url: string;
   gtin: string;
   image: string;
-  availability: string;
+  availability: "OutOfStock" | "InStock";
   price: number;
   priceCurrency: string;
   itemCondition: string;
