@@ -27,6 +27,8 @@ for (const url of urls) {
     cheapest_per_200g: Math.min(single.price, perBox),
     price_valid_until: single.priceValidUntil || box.priceValidUntil,
     fetched_at: new Date().toISOString().slice(0, 10),
+    single_in_stock: single.availability === "InStock",
+    box_in_stock: box.availability === "InStock",
   };
 }
 
@@ -39,13 +41,15 @@ async function getLastLine(file: string): Promise<string | null> {
 const lastLine = await getLastLine(outputFile);
 const lastData: OfferData | null = lastLine ? JSON.parse(lastLine) : null;
 
-// check if any price has changed
+// check if any price or stock has changed
 const hasChanged = Object.entries(newData).some(([key, newValue]) => {
   const oldValue = lastData?.[key];
   if (!oldValue) return true;
   return (
     newValue.price_200g !== oldValue.price_200g ||
-    newValue.price_6x200g !== oldValue.price_6x200g
+    newValue.price_6x200g !== oldValue.price_6x200g ||
+    newValue.single_in_stock !== oldValue.single_in_stock ||
+    newValue.box_in_stock !== oldValue.box_in_stock
   );
 });
 

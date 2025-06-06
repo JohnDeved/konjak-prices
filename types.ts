@@ -26,4 +26,6 @@ export type OfferData = Record<string, {
   cheapest_per_200g: number;
   price_valid_until?: string;
   fetched_at: string;
+  single_in_stock: boolean;
+  box_in_stock: boolean;
 }>
