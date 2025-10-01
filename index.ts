@@ -13,7 +13,18 @@ const newData: OfferData = {};
 for (const url of urls) {
   const html = await fetch(url).then((res) => res.text());
   const $c = cheerio.load(html);
-  const data = JSON.parse($c('script[type="application/ld+json"]').text());
+  const jsonLd = JSON.parse($c('script[type="application/ld+json"]').text());
+  
+  // Handle JSON-LD @graph structure (new format) or direct object (old format)
+  let data = jsonLd;
+  if (jsonLd["@graph"]) {
+    // Find the Product object in the @graph array
+    data = jsonLd["@graph"].find((item: any) => item["@type"] === "Product");
+    if (!data) {
+      console.log(`Skipping ${url}: No Product found in @graph`);
+      continue;
+    }
+  }
   
   if (!data.offers) {
     console.log(`Skipping ${url}: No offers found`);
