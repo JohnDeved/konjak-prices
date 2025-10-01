@@ -14,6 +14,12 @@ for (const url of urls) {
   const html = await fetch(url).then((res) => res.text());
   const $c = cheerio.load(html);
   const data = JSON.parse($c('script[type="application/ld+json"]').text());
+  
+  if (!data.offers || !Array.isArray(data.offers)) {
+    console.log(`Skipping ${url}: No offers found`);
+    continue;
+  }
+  
   const offers = Object.fromEntries((data.offers as Offer[]).map((o) => [o.sku, o]));
   const single = Object.values(offers).find((o: Offer) => o.sku.endsWith("-200G"));
   const box = Object.values(offers).find((o: Offer) => o.sku.endsWith("-BX06"));
